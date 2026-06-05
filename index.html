@@ -471,8 +471,9 @@ window.closeModal = closeModal;
 async function saveMarker() {
   const name = document.getElementById('m-name').value.trim();
   if (!name) { document.getElementById('m-name').focus(); return; }
+  const wasEditing = editingId; // capture before closeModal() resets it to null
   const row = {
-    id:    editingId || ('m_'+Date.now()+'_'+Math.random().toString(36).slice(2)),
+    id:    wasEditing || ('m_'+Date.now()+'_'+Math.random().toString(36).slice(2)),
     name,
     cat:   document.getElementById('m-cat').value,
     descr: document.getElementById('m-desc').value.trim(),
@@ -488,7 +489,7 @@ async function saveMarker() {
   // Persist
   syncStatus('Saving…','busy');
   const { id: _id, ...payload } = row;
-  const { error } = editingId
+  const { error } = wasEditing
     ? await sb.from('markers').update(payload).eq('id', row.id)
     : await sb.from('markers').insert(row);
   if (error) {
@@ -612,12 +613,4 @@ let flashTimer;
 function flash(msg) {
   const el = document.getElementById('status');
   el.textContent=msg; el.classList.add('show');
-  clearTimeout(flashTimer); flashTimer=setTimeout(()=>el.classList.remove('show'),2500);
-}
-
-buildFilters();
-buildGrid();
-loadMarkers();
-</script>
-</body>
-</html>
+  clearTimeout(flashTimer); flashTimer=setTimeout(()=>el.classList.remove('sho
