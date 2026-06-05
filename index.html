@@ -296,14 +296,19 @@ async function saveMarker() {
   let error;
   if (editingId) {
     ({ error } = await sb.from('markers').update(row).eq('id', editingId));
+    if (!error) {
+      if (markers[editingId]) { map.removeLayer(markers[editingId].leafletMarker); delete markers[editingId]; }
+      row.id = editingId;
+      addMarkerToMap(row);
+    }
   } else {
     row.id = 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2);
     ({ error } = await sb.from('markers').insert(row));
-    if (!error) setMode('view');
+    if (!error) { addMarkerToMap(row); setMode('view'); }
   }
   closeModal();
   if (error) { syncStatus('Save failed','err'); flash('Error: '+error.message); }
-  else { syncStatus('Live','ok'); flash('Marker saved'); }
+  else { syncStatus('Live','ok'); flash('Marker saved'); updateCatCounts(); updateVisibility(); }
 }
 window.saveMarker = saveMarker;
 
@@ -314,7 +319,11 @@ async function hideMarkerById(id) {
   syncStatus('Saving…','busy');
   const { error } = await sb.from('markers').update({ hidden: true }).eq('id', id);
   if (error) { syncStatus('Error','err'); flash('Error: '+error.message); }
-  else { syncStatus('Live','ok'); flash('Marker hidden'); }
+  else {
+    if (markers[id]) { map.removeLayer(markers[id].leafletMarker); delete markers[id]; }
+    updateCatCounts(); updateVisibility();
+    syncStatus('Live','ok'); flash('Marker hidden');
+  }
 }
 
 // FILTER / SEARCH
