@@ -67,14 +67,32 @@
   .leaflet-popup-content { margin: 12px 14px !important; font-size: 14px !important; }
   .popup-name { font-family: 'Cinzel', serif; font-size: 13px; color: var(--gold); margin-bottom: 4px; }
   .popup-cat { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; }
-  .popup-desc { font-size: 14px; line-height: 1.4; }
-  .popup-actions { margin-top: 10px; display: flex; gap: 8px; }
+  .popup-desc { font-size: 14px; line-height: 1.4; margin-bottom: 8px; }
+  .popup-notes-section { border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px; }
+  .popup-notes-title { font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; }
+  .popup-note-list { max-height: 130px; overflow-y: auto; margin-bottom: 8px; }
+  .popup-note-list::-webkit-scrollbar { width: 3px; }
+  .popup-note-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .popup-note-item { padding: 5px 0; border-bottom: 1px solid rgba(180,140,60,0.1); }
+  .popup-note-item:last-child { border-bottom: none; }
+  .popup-note-meta { display: flex; justify-content: space-between; margin-bottom: 2px; }
+  .popup-note-author { font-family: 'Cinzel', serif; font-size: 10px; color: var(--gold); }
+  .popup-note-time { font-size: 10px; color: var(--text-dim); }
+  .popup-note-text { font-size: 13px; line-height: 1.4; color: var(--text); }
+  .popup-note-empty { font-size: 12px; color: var(--text-dim); font-style: italic; padding: 4px 0 8px; }
+  .popup-note-input { width: 100%; padding: 5px 7px; background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: 3px; color: var(--text); font-family: 'Crimson Text', serif; font-size: 13px; outline: none; margin-bottom: 4px; transition: border-color .2s; }
+  .popup-note-input:focus { border-color: var(--gold); }
+  textarea.popup-note-input { resize: none; height: 50px; }
+  .popup-note-btn { width: 100%; padding: 5px; font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; background: rgba(201,168,76,.08); border: 1px solid var(--border); color: var(--text-dim); border-radius: 3px; cursor: pointer; transition: all .2s; margin-bottom: 8px; }
+  .popup-note-btn:hover { color: var(--gold); border-color: var(--gold); background: rgba(201,168,76,.15); }
+  .popup-actions { display: flex; gap: 8px; border-top: 1px solid var(--border); padding-top: 8px; }
   .popup-btn { flex: 1; padding: 5px 8px; font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; border-radius: 3px; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text-dim); transition: all .2s; }
   .popup-btn:hover { color: var(--gold); border-color: var(--gold); }
   .popup-btn.hide-btn:hover { color: #c9a84c; border-color: #c9a84c; }
   .map-marker { display: flex; flex-direction: column; align-items: center; pointer-events: none; }
   .marker-pin { border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 2px solid rgba(0,0,0,.4); box-shadow: 0 2px 6px rgba(0,0,0,.5); }
   .marker-label { font-family: 'Crimson Text', serif; font-size: 11px; font-weight: 600; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.9); white-space: nowrap; max-width: 120px; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; pointer-events: none; }
+  #version-display { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 1000; font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 1.5px; color: rgba(180,140,60,0.5); pointer-events: none; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
   #coords-display { position: absolute; bottom: 12px; left: 12px; z-index: 1000; background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 4px 10px; font-family: 'Crimson Text', serif; font-size: 12px; color: var(--text-dim); pointer-events: none; }
   #status { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 1001; background: rgba(10,11,14,.9); border: 1px solid var(--gold); border-radius: 4px; padding: 6px 16px; font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 1px; color: var(--gold); opacity: 0; transition: opacity .3s; pointer-events: none; }
   #status.show { opacity: 1; }
@@ -135,6 +153,7 @@
   <hr class="divider">
   <div id="sync-bar" class="busy">Connecting&#x2026;</div>
 </div>
+<div id="version-display">v1.0.0</div>
 <div id="coords-display">x: 0&nbsp;&nbsp;y: 0</div>
 <div id="status"></div>
 <div id="modal-overlay">
@@ -255,12 +274,11 @@ function makeIcon(name, color) {
 function addMarkerToMap(d) {
   const catDef = CAT_MAP[d.cat] || CAT_MAP['Other'];
   const lm = L.marker([d.y, d.x], { icon: makeIcon(d.name, catDef.color) }).addTo(map);
-  lm.bindPopup(buildPopup(d.id, d, catDef), { maxWidth: 260 });
+  lm.bindPopup(buildPopup(d.id, d, catDef), { maxWidth: 300 });
   lm.on('popupopen', () => {
-    const eb = document.querySelector('.popup-btn[data-id="'+d.id+'"][data-action="edit"]');
-    const hb = document.querySelector('.popup-btn[data-id="'+d.id+'"][data-action="hide"]');
-    if (eb) eb.onclick = () => { lm.closePopup(); openEditModal(d.id); };
-    if (hb) hb.onclick = () => { lm.closePopup(); hideMarkerById(d.id); };
+    document.querySelector('.popup-btn[data-id="'+d.id+'"][data-action="edit"]').onclick = () => { lm.closePopup(); openEditModal(d.id); };
+    document.querySelector('.popup-btn[data-id="'+d.id+'"][data-action="hide"]').onclick = () => { lm.closePopup(); hideMarkerById(d.id); };
+    loadNotes(d.id);
   });
   markers[d.id] = { data: d, leafletMarker: lm };
 }
@@ -269,10 +287,66 @@ function buildPopup(id, d, catDef) {
   return '<div class="popup-name">'+(d.name||'(Unnamed)')+'</div>'
     +'<div class="popup-cat">'+(catDef?catDef.label:d.cat)+'</div>'
     +(d.descr?'<div class="popup-desc">'+d.descr+'</div>':'')
+    +'<div class="popup-notes-section">'
+    +'<div class="popup-notes-title">Notes</div>'
+    +'<div class="popup-note-list" id="nl-'+id+'"><div class="popup-note-empty">Loading…</div></div>'
+    +'<input class="popup-note-input" id="na-'+id+'" placeholder="Your name (optional)" value="'+getSavedAuthor()+'">'
+    +'<textarea class="popup-note-input" id="nt-'+id+'" placeholder="Add a note…"></textarea>'
+    +'<button class="popup-note-btn" onclick="submitNote(\''+id+'\')">Post Note</button>'
+    +'</div>'
     +'<div class="popup-actions">'
     +'<button class="popup-btn" data-id="'+id+'" data-action="edit">Edit</button>'
     +'<button class="popup-btn hide-btn" data-id="'+id+'" data-action="hide">Hide</button>'
     +'</div>';
+}
+
+// NOTES
+function getSavedAuthor() { return localStorage.getItem('sardisans_author') || ''; }
+
+async function loadNotes(markerId) {
+  const list = document.getElementById('nl-'+markerId);
+  if (!list) return;
+  const { data, error } = await sb.from('notes').select('*').eq('marker_id', markerId).order('ts', { ascending: true });
+  if (!list) return; // popup may have closed
+  if (error || !data || data.length === 0) {
+    list.innerHTML = '<div class="popup-note-empty">'+(error ? 'Error loading notes' : 'No notes yet')+'</div>';
+    return;
+  }
+  list.innerHTML = data.map(n => {
+    const ago = timeAgo(n.ts);
+    return '<div class="popup-note-item">'
+      +'<div class="popup-note-meta"><span class="popup-note-author">'+(n.author||'Anonymous')+'</span><span class="popup-note-time">'+ago+'</span></div>'
+      +'<div class="popup-note-text">'+escHtml(n.content)+'</div>'
+      +'</div>';
+  }).join('');
+  list.scrollTop = list.scrollHeight;
+}
+
+async function submitNote(markerId) {
+  const authorEl = document.getElementById('na-'+markerId);
+  const textEl   = document.getElementById('nt-'+markerId);
+  if (!authorEl || !textEl) return;
+  const content = textEl.value.trim();
+  if (!content) { textEl.focus(); return; }
+  const author = authorEl.value.trim() || 'Anonymous';
+  localStorage.setItem('sardisans_author', authorEl.value.trim());
+  const note = { id: 'n_'+Date.now()+'_'+Math.random().toString(36).slice(2), marker_id: markerId, content, author, ts: Date.now() };
+  textEl.value = '';
+  const { error } = await sb.from('notes').insert(note);
+  if (!error) loadNotes(markerId);
+}
+window.submitNote = submitNote;
+
+function timeAgo(ts) {
+  const diff = Math.floor((Date.now() - ts) / 1000);
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return Math.floor(diff/60)+'m ago';
+  if (diff < 86400) return Math.floor(diff/3600)+'h ago';
+  return Math.floor(diff/86400)+'d ago';
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 // RIGHT-CLICK TO ADD
@@ -346,8 +420,9 @@ async function saveMarker() {
 
   // Persist to Supabase in background
   syncStatus('Saving…','busy');
+  const { id: _id, ...updatePayload } = row;
   const { error } = editingId
-    ? await sb.from('markers').update(row).eq('id', row.id)
+    ? await sb.from('markers').update(updatePayload).eq('id', row.id)
     : await sb.from('markers').insert(row);
 
   if (error) {
