@@ -73,6 +73,37 @@
   #coords-display { position: absolute; bottom: 12px; left: 12px; z-index: 1000; background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 4px 10px; font-family: 'Crimson Text', serif; font-size: 12px; color: var(--text-dim); pointer-events: none; }
   #status { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 1001; background: rgba(10,11,14,.9); border: 1px solid var(--gold); border-radius: 4px; padding: 6px 16px; font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 1px; color: var(--gold); opacity: 0; transition: opacity .3s; pointer-events: none; }
   #status.show { opacity: 1; }
+
+  /* HIDDEN MARKERS */
+  #hidden-section { margin-top: 8px; }
+  #hidden-toggle {
+    width: 100%; background: transparent; border: 1px solid var(--border);
+    color: var(--text-dim); font-family: 'Cinzel', serif; font-size: 10px;
+    letter-spacing: 1px; text-transform: uppercase; padding: 6px 8px;
+    border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between;
+    align-items: center; transition: all .2s;
+  }
+  #hidden-toggle:hover { color: var(--gold); border-color: var(--gold); }
+  #hidden-toggle .arrow { transition: transform .2s; }
+  #hidden-toggle.open .arrow { transform: rotate(180deg); }
+  #hidden-list { display: none; margin-top: 6px; }
+  #hidden-list.open { display: block; }
+  .hidden-item {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 2px; border-bottom: 1px solid rgba(180,140,60,0.12);
+  }
+  .hidden-item:last-child { border-bottom: none; }
+  .hidden-item-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .hidden-item-name { font-size: 12px; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hidden-item-btns { display: flex; gap: 4px; flex-shrink: 0; }
+  .hi-btn {
+    padding: 2px 6px; font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: .5px;
+    border-radius: 3px; cursor: pointer; border: 1px solid var(--border);
+    background: transparent; color: var(--text-dim); transition: all .2s;
+  }
+  .hi-btn.restore:hover { color: #27ae60; border-color: #27ae60; }
+  .hi-btn.del:hover { color: #e74c3c; border-color: #e74c3c; }
+  #hidden-empty { font-size: 12px; color: var(--text-dim); text-align: center; padding: 8px 0; }
 </style>
 </head>
 <body>
@@ -86,6 +117,16 @@
   </div>
   <input type="text" id="search" placeholder="Search markers&#x2026;" oninput="updateVisibility()">
   <div id="filters"></div>
+  <hr class="divider">
+  <div id="hidden-section">
+    <button id="hidden-toggle" onclick="toggleHidden()">
+      <span>Hidden Markers <span id="hidden-count"></span></span>
+      <span class="arrow">&#9650;</span>
+    </button>
+    <div id="hidden-list">
+      <div id="hidden-empty" style="display:none">No hidden markers</div>
+    </div>
+  </div>
   <hr class="divider">
   <div id="sync-bar" class="busy">Connecting&#x2026;</div>
 </div>
@@ -329,6 +370,7 @@ async function hideMarkerById(id) {
     if (markers[id]) { map.removeLayer(markers[id].leafletMarker); delete markers[id]; }
     updateCatCounts(); updateVisibility();
     syncStatus('Live','ok'); flash('Marker hidden');
+    if (hiddenOpen) loadHiddenMarkers();
   }
 }
 
@@ -362,6 +404,57 @@ function buildFilters() {
     row.append(cb,dot,lbl,cnt);
     row.onclick = e => { if(e.target!==cb){cb.checked=!cb.checked; cb.dispatchEvent(new Event('change'));} };
     container.appendChild(row);
+  });
+}
+
+// HIDDEN MARKERS PANEL
+let hiddenOpen = false;
+
+function toggleHidden() {
+  hiddenOpen = !hiddenOpen;
+  document.getElementById('hidden-toggle').classList.toggle('open', hiddenOpen);
+  document.getElementById('hidden-list').classList.toggle('open', hiddenOpen);
+  if (hiddenOpen) loadHiddenMarkers();
+}
+window.toggleHidden = toggleHidden;
+
+async function loadHiddenMarkers() {
+  const list = document.getElementById('hidden-list');
+  const empty = document.getElementById('hidden-empty');
+  // Clear previous rows (keep the empty notice)
+  Array.from(list.querySelectorAll('.hidden-item')).forEach(el => el.remove());
+
+  const { data, error } = await sb.from('markers').select('*').eq('hidden', true).order('ts', { ascending: false });
+  if (error || !data) return;
+
+  const countEl = document.getElementById('hidden-count');
+  countEl.textContent = data.length ? '('+data.length+')' : '';
+  empty.style.display = data.length ? 'none' : 'block';
+
+  data.forEach(d => {
+    const catDef = CAT_MAP[d.cat] || CAT_MAP['Other'];
+    const item = document.createElement('div'); item.className = 'hidden-item';
+    const dot  = document.createElement('div'); dot.className = 'hidden-item-dot'; dot.style.background = catDef.color;
+    const name = document.createElement('span'); name.className = 'hidden-item-name'; name.textContent = d.name || '(Unnamed)'; name.title = d.name || '';
+    const btns = document.createElement('div'); btns.className = 'hidden-item-btns';
+
+    const restoreBtn = document.createElement('button'); restoreBtn.className = 'hi-btn restore'; restoreBtn.textContent = 'Restore';
+    restoreBtn.onclick = async () => {
+      await sb.from('markers').update({ hidden: false }).eq('id', d.id);
+      addMarkerToMap(d); updateCatCounts(); updateVisibility();
+      loadHiddenMarkers();
+    };
+
+    const delBtn = document.createElement('button'); delBtn.className = 'hi-btn del'; delBtn.textContent = 'Delete';
+    delBtn.onclick = async () => {
+      if (!confirm('Permanently delete "' + (d.name||'this marker') + '"?')) return;
+      await sb.from('markers').delete().eq('id', d.id);
+      loadHiddenMarkers();
+    };
+
+    btns.append(restoreBtn, delBtn);
+    item.append(dot, name, btns);
+    list.appendChild(item);
   });
 }
 
