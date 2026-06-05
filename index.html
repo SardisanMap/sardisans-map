@@ -284,6 +284,7 @@ async function saveMarker() {
   const name = document.getElementById('m-name').value.trim();
   if (!name) { document.getElementById('m-name').focus(); return; }
   const row = {
+    id:    editingId || ('m_' + Date.now() + '_' + Math.random().toString(36).slice(2)),
     name,
     cat:   document.getElementById('m-cat').value,
     descr: document.getElementById('m-desc').value.trim(),
@@ -292,23 +293,28 @@ async function saveMarker() {
     hidden: false,
     ts:    Date.now()
   };
-  syncStatus('Saving…','busy');
-  let error;
-  if (editingId) {
-    ({ error } = await sb.from('markers').update(row).eq('id', editingId));
-    if (!error) {
-      if (markers[editingId]) { map.removeLayer(markers[editingId].leafletMarker); delete markers[editingId]; }
-      row.id = editingId;
-      addMarkerToMap(row);
-    }
-  } else {
-    row.id = 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-    ({ error } = await sb.from('markers').insert(row));
-    if (!error) { addMarkerToMap(row); setMode('view'); }
-  }
+
+  // Optimistic update — show on map immediately
+  if (markers[row.id]) { map.removeLayer(markers[row.id].leafletMarker); delete markers[row.id]; }
+  addMarkerToMap(row);
+  updateCatCounts(); updateVisibility();
+  if (!editingId) setMode('view');
   closeModal();
-  if (error) { syncStatus('Save failed','err'); flash('Error: '+error.message); }
-  else { syncStatus('Live','ok'); flash('Marker saved'); updateCatCounts(); updateVisibility(); }
+
+  // Persist to Supabase in background
+  syncStatus('Saving…','busy');
+  const { error } = editingId
+    ? await sb.from('markers').update(row).eq('id', row.id)
+    : await sb.from('markers').insert(row);
+
+  if (error) {
+    // Roll back optimistic update
+    if (markers[row.id]) { map.removeLayer(markers[row.id].leafletMarker); delete markers[row.id]; }
+    updateCatCounts();
+    syncStatus('Save failed','err'); flash('Error: '+error.message);
+  } else {
+    syncStatus('Live','ok'); flash('Marker saved');
+  }
 }
 window.saveMarker = saveMarker;
 
