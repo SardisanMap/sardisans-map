@@ -7,24 +7,47 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
-  :root { --panel: rgba(10,11,14,0.92); --border: rgba(180,140,60,0.35); --gold: #c9a84c; --text: #d4c5a0; --text-dim: #8a7a60; }
+
+  :root { --panel: rgba(10,11,14,0.95); --border: rgba(180,140,60,0.35); --gold: #c9a84c; --text: #d4c5a0; --text-dim: #8a7a60; --footer-h: 38px; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body, html { height: 100%; overflow: hidden; background: #111; font-family: 'Crimson Text', Georgia, serif; color: var(--text); }
-  #map { width: 100vw; height: 100vh; background: #1a1610; }
-  #panel {position: absolute; top: 16px; right: 16px; z-index: 1000; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 14px; width: 220px; backdrop-filter: blur(8px); box-shadow: 0 4px 24px rgba(0,0,0,0.6); max-height: calc(100vh - 32px); overflow-y: auto; }
+  body, html { height: 100%; overflow: hidden; background: #111; font-family: 'Crimson Text', Georgia, serif; color: var(--text); display: flex; flex-direction: column; }
+
+  /* MAP AREA */
+  #map-wrap { position: relative; flex: 1; overflow: hidden; min-height: 0; }
+  #map { width: 100%; height: 100%; background: #1a1610; }
+
+  /* STATIC FOOTER */
+  #footer {
+    height: var(--footer-h); flex-shrink: 0;
+    background: rgba(8,9,11,0.98); border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 14px; gap: 12px; z-index: 1000;
+  }
+  #coords-display { font-family: 'Crimson Text', serif; font-size: 12px; color: var(--text-dim); white-space: nowrap; min-width: 180px; }
+  #version-display { font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 1.5px; color: rgba(180,140,60,0.5); white-space: nowrap; }
+  #zoom-controls { display: flex; gap: 4px; flex-shrink: 0; }
+  .zoom-btn {
+    width: 28px; height: 24px; background: transparent; border: 1px solid var(--border);
+    color: var(--text-dim); font-size: 16px; line-height: 1; border-radius: 3px;
+    cursor: pointer; transition: all .2s; display: flex; align-items: center; justify-content: center;
+    font-family: 'Cinzel', serif;
+  }
+  .zoom-btn:hover { color: var(--gold); border-color: var(--gold); }
+
+  /* PANEL */
+  #panel {
+    position: absolute; top: 16px; right: 16px; z-index: 1000;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+    padding: 14px; width: 224px; backdrop-filter: blur(8px);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+    max-height: calc(100% - 32px); overflow-y: auto;
+  }
   #panel::-webkit-scrollbar { width: 4px; }
   #panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-  #panel h2 { font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: 2px; color: var(--gold); text-align: center; margin-bottom: 12px; text-transform: uppercase; }
+  #panel h2 { font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: 2px; color: var(--gold); text-align: center; margin-bottom: 10px; text-transform: uppercase; }
   #right-click-hint { font-size: 10px; color: var(--text-dim); text-align: center; margin-bottom: 10px; letter-spacing: .5px; }
   .grid-toggle-row { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; cursor: pointer; }
   .grid-toggle-row span { font-size: 12px; color: var(--text-dim); }
-  .grid-label {
-    color: rgba(230,210,155,0.95); font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700;
-    text-align: center; pointer-events: none !important;
-    text-shadow: 0 0 4px rgba(0,0,0,1), 0 1px 2px rgba(0,0,0,1), 1px 1px 0 rgba(0,0,0,0.9), -1px -1px 0 rgba(0,0,0,0.9);
-    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.9));
-    background: transparent; border: none; line-height: 1;
-  }
   #search { width: 100%; padding: 6px 8px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: 'Crimson Text', serif; font-size: 14px; outline: none; margin-bottom: 10px; }
   #search::placeholder { color: var(--text-dim); }
   #filters { margin-bottom: 10px; }
@@ -41,27 +64,70 @@
   #sync-bar.ok { color: #27ae60; }
   #sync-bar.busy { color: var(--gold); }
   #sync-bar.err { color: #e74c3c; }
-  #add-indicator { display: none; position: absolute; top: 16px; left: 50%; transform: translateX(-50%); z-index: 1001; background: rgba(201,168,76,0.15); border: 1px solid var(--gold); border-radius: 4px; padding: 8px 18px; font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 1.5px; color: var(--gold); pointer-events: none; backdrop-filter: blur(6px); animation: pulse 2s ease-in-out infinite; }
-  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.6} }
-  #modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+
+  /* HIDDEN MARKERS */
+  #hidden-section { margin-top: 2px; }
+  #hidden-toggle { width: 100%; background: transparent; border: 1px solid var(--border); color: var(--text-dim); font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; padding: 6px 8px; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all .2s; }
+  #hidden-toggle:hover { color: var(--gold); border-color: var(--gold); }
+  #hidden-toggle .arrow { transition: transform .2s; font-size: 9px; }
+  #hidden-toggle.open .arrow { transform: rotate(180deg); }
+  #hidden-list { display: none; margin-top: 6px; }
+  #hidden-list.open { display: block; }
+  .hidden-item { display: flex; align-items: center; gap: 6px; padding: 5px 2px; border-bottom: 1px solid rgba(180,140,60,0.12); }
+  .hidden-item:last-child { border-bottom: none; }
+  .hidden-item-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .hidden-item-name { font-size: 12px; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hidden-item-btns { display: flex; gap: 4px; flex-shrink: 0; }
+  .hi-btn { padding: 2px 6px; font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: .5px; border-radius: 3px; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text-dim); transition: all .2s; }
+  .hi-btn.restore:hover { color: #27ae60; border-color: #27ae60; }
+  .hi-btn.del:hover { color: #e74c3c; border-color: #e74c3c; }
+  #hidden-empty { font-size: 12px; color: var(--text-dim); text-align: center; padding: 8px 0; }
+
+  /* GRID LABELS */
+  .grid-label { color: rgba(230,210,155,0.95); font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700; text-align: center; pointer-events: none !important; text-shadow: 0 0 4px rgba(0,0,0,1), 0 1px 2px rgba(0,0,0,1), 1px 1px 0 rgba(0,0,0,0.9), -1px -1px 0 rgba(0,0,0,0.9); filter: drop-shadow(0 1px 3px rgba(0,0,0,0.9)); background: transparent; border: none; line-height: 1; }
+
+  /* STATUS TOAST */
+  #status { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 1001; background: rgba(10,11,14,.9); border: 1px solid var(--gold); border-radius: 4px; padding: 6px 16px; font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 1px; color: var(--gold); opacity: 0; transition: opacity .3s; pointer-events: none; }
+  #status.show { opacity: 1; }
+
+  /* MODAL */
+  #modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
   #modal-overlay.open { display: flex; }
-  #modal { background: #131518; border: 1px solid var(--border); border-radius: 8px; padding: 24px 28px; width: 360px; max-width: 95vw; box-shadow: 0 16px 48px rgba(0,0,0,.8); }
-  #modal h3 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 15px; letter-spacing: 2px; margin-bottom: 18px; text-align: center; text-transform: uppercase; }
-  .form-group { margin-bottom: 14px; }
-  .form-group label { display: block; font-size: 12px; letter-spacing: 1px; color: var(--text-dim); text-transform: uppercase; margin-bottom: 5px; }
-  .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px 10px; background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: 'Crimson Text', serif; font-size: 14px; outline: none; transition: border-color .2s; }
+  #modal { background: #131518; border: 1px solid var(--border); border-radius: 8px; padding: 28px 32px; width: 460px; max-width: 96vw; box-shadow: 0 16px 48px rgba(0,0,0,.8); position: relative; }
+  #modal-close { position: absolute; top: 12px; right: 14px; background: transparent; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; line-height: 1; padding: 2px 6px; border-radius: 3px; transition: color .2s; }
+  #modal-close:hover { color: #e74c3c; }
+  #modal h3 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 15px; letter-spacing: 2px; margin-bottom: 20px; text-align: center; text-transform: uppercase; padding-right: 24px; }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 12px; letter-spacing: 1px; color: var(--text-dim); text-transform: uppercase; margin-bottom: 6px; }
+  .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 9px 11px; background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: 'Crimson Text', serif; font-size: 15px; outline: none; transition: border-color .2s; }
   .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--gold); }
   .form-group select option { background: #1a1c20; }
-  .form-group textarea { resize: vertical; min-height: 60px; }
+  .form-group textarea { resize: vertical; min-height: 70px; }
   #cat-color-preview { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; color: var(--text-dim); }
   #cat-color-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255,255,255,.3); flex-shrink: 0; }
-  .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
-  .btn-primary { flex: 1; padding: 9px; font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; background: rgba(201,168,76,.2); border: 1px solid var(--gold); color: var(--gold); border-radius: 4px; cursor: pointer; transition: all .2s; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 22px; align-items: center; }
+  .btn-primary { flex: 1; padding: 10px; font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; background: rgba(201,168,76,.2); border: 1px solid var(--gold); color: var(--gold); border-radius: 4px; cursor: pointer; transition: all .2s; }
   .btn-primary:hover { background: rgba(201,168,76,.35); }
-  .btn-cancel { padding: 9px 16px; font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; background: transparent; border: 1px solid var(--border); color: var(--text-dim); border-radius: 4px; cursor: pointer; transition: all .2s; }
-  .btn-cancel:hover { border-color: #e74c3c; color: #e74c3c; }
-  .btn-hide { padding: 9px 16px; font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; background: transparent; border: 1px solid rgba(200,150,0,.4); color: #c9a84c; border-radius: 4px; cursor: pointer; transition: all .2s; }
-  .btn-hide:hover { background: rgba(201,168,76,.1); }
+  /* Eye-slash hide button */
+  .btn-hide {
+    padding: 8px 12px; background: transparent; border: 1px solid rgba(200,150,0,.35);
+    color: var(--text-dim); border-radius: 4px; cursor: pointer; transition: all .2s;
+    display: flex; align-items: center; gap: 6px; font-family: 'Cinzel', serif;
+    font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+    position: relative;
+  }
+  .btn-hide:hover { color: #e67e22; border-color: #e67e22; background: rgba(230,126,34,.08); }
+  .btn-hide svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .btn-hide .tooltip {
+    display: none; position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+    background: #1a1c20; border: 1px solid var(--border); border-radius: 4px;
+    padding: 6px 10px; font-size: 11px; color: var(--text); white-space: nowrap;
+    pointer-events: none; z-index: 10; letter-spacing: 0; text-transform: none;
+    font-family: 'Crimson Text', serif;
+  }
+  .btn-hide:hover .tooltip { display: block; }
+
+  /* POPUP */
   .leaflet-popup-content-wrapper { background: #131518 !important; border: 1px solid var(--border) !important; border-radius: 6px !important; color: var(--text) !important; font-family: 'Crimson Text', serif !important; box-shadow: 0 8px 24px rgba(0,0,0,.7) !important; }
   .leaflet-popup-tip { background: #131518 !important; }
   .leaflet-popup-content { margin: 12px 14px !important; font-size: 14px !important; }
@@ -88,76 +154,57 @@
   .popup-actions { display: flex; gap: 8px; border-top: 1px solid var(--border); padding-top: 8px; }
   .popup-btn { flex: 1; padding: 5px 8px; font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; border-radius: 3px; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text-dim); transition: all .2s; }
   .popup-btn:hover { color: var(--gold); border-color: var(--gold); }
-  .popup-btn.hide-btn:hover { color: #c9a84c; border-color: #c9a84c; }
+
+  /* MARKERS */
   .map-marker { display: flex; flex-direction: column; align-items: center; pointer-events: none; }
   .marker-pin { border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 2px solid rgba(0,0,0,.4); box-shadow: 0 2px 6px rgba(0,0,0,.5); }
   .marker-label { font-family: 'Crimson Text', serif; font-size: 11px; font-weight: 600; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.9); white-space: nowrap; max-width: 120px; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; pointer-events: none; }
-  #version-display { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 1000; font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 1.5px; color: rgba(180,140,60,0.5); pointer-events: none; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
-  #coords-display { position: absolute; bottom: 12px; left: 12px; z-index: 1000; background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 4px 10px; font-family: 'Crimson Text', serif; font-size: 12px; color: var(--text-dim); pointer-events: none; }
-  #status { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 1001; background: rgba(10,11,14,.9); border: 1px solid var(--gold); border-radius: 4px; padding: 6px 16px; font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 1px; color: var(--gold); opacity: 0; transition: opacity .3s; pointer-events: none; }
-  #status.show { opacity: 1; }
-
-  /* HIDDEN MARKERS */
-  #hidden-section { margin-top: 8px; }
-  #hidden-toggle {
-    width: 100%; background: transparent; border: 1px solid var(--border);
-    color: var(--text-dim); font-family: 'Cinzel', serif; font-size: 10px;
-    letter-spacing: 1px; text-transform: uppercase; padding: 6px 8px;
-    border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between;
-    align-items: center; transition: all .2s;
-  }
-  #hidden-toggle:hover { color: var(--gold); border-color: var(--gold); }
-  #hidden-toggle .arrow { transition: transform .2s; }
-  #hidden-toggle.open .arrow { transform: rotate(180deg); }
-  #hidden-list { display: none; margin-top: 6px; }
-  #hidden-list.open { display: block; }
-  .hidden-item {
-    display: flex; align-items: center; gap: 6px;
-    padding: 5px 2px; border-bottom: 1px solid rgba(180,140,60,0.12);
-  }
-  .hidden-item:last-child { border-bottom: none; }
-  .hidden-item-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .hidden-item-name { font-size: 12px; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .hidden-item-btns { display: flex; gap: 4px; flex-shrink: 0; }
-  .hi-btn {
-    padding: 2px 6px; font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: .5px;
-    border-radius: 3px; cursor: pointer; border: 1px solid var(--border);
-    background: transparent; color: var(--text-dim); transition: all .2s;
-  }
-  .hi-btn.restore:hover { color: #27ae60; border-color: #27ae60; }
-  .hi-btn.del:hover { color: #e74c3c; border-color: #e74c3c; }
-  #hidden-empty { font-size: 12px; color: var(--text-dim); text-align: center; padding: 8px 0; }
 </style>
 </head>
 <body>
-<div id="map"></div>
-<div id="panel">
-  <h2>Sardisans Map</h2>
-  <div id="right-click-hint">Right-click map to add a marker</div>
-  <label class="grid-toggle-row">
-    <input type="checkbox" class="cat-toggle" id="grid-chk" checked onchange="toggleGrid(this.checked)">
-    <span>Show grid</span>
-  </label>
-  <input type="text" id="search" placeholder="Search markers&#x2026;" oninput="updateVisibility()">
-  <div id="filters"></div>
-  <hr class="divider">
-  <div id="hidden-section">
-    <button id="hidden-toggle" onclick="toggleHidden()">
-      <span>Hidden Markers <span id="hidden-count"></span></span>
-      <span class="arrow">&#9650;</span>
-    </button>
-    <div id="hidden-list">
-      <div id="hidden-empty" style="display:none">No hidden markers</div>
+
+<div id="map-wrap">
+  <div id="map"></div>
+
+  <div id="panel">
+    <h2>Sardisans Map</h2>
+    <div id="right-click-hint">Right-click map to add a marker</div>
+    <label class="grid-toggle-row">
+      <input type="checkbox" class="cat-toggle" id="grid-chk" checked onchange="toggleGrid(this.checked)">
+      <span>Show grid</span>
+    </label>
+    <input type="text" id="search" placeholder="Search markers&#x2026;" oninput="updateVisibility()">
+    <div id="filters"></div>
+    <hr class="divider">
+    <div id="hidden-section">
+      <button id="hidden-toggle" onclick="toggleHidden()">
+        <span>Hidden Markers <span id="hidden-count"></span></span>
+        <span class="arrow">&#9650;</span>
+      </button>
+      <div id="hidden-list">
+        <div id="hidden-empty" style="display:none">No hidden markers</div>
+      </div>
     </div>
+    <hr class="divider">
+    <div id="sync-bar" class="busy">Connecting&#x2026;</div>
   </div>
-  <hr class="divider">
-  <div id="sync-bar" class="busy">Connecting&#x2026;</div>
+
+  <div id="status"></div>
 </div>
-<div id="version-display">v1.0.0</div>
-<div id="coords-display">x: 0&nbsp;&nbsp;y: 0</div>
-<div id="status"></div>
+
+<div id="footer">
+  <div id="coords-display">x: 0&nbsp;&nbsp;y: 0</div>
+  <div id="version-display">v1.1.0</div>
+  <div id="zoom-controls">
+    <button class="zoom-btn" onclick="map.zoomIn()" title="Zoom in">+</button>
+    <button class="zoom-btn" onclick="map.zoomOut()" title="Zoom out">&#x2212;</button>
+  </div>
+</div>
+
+<!-- MODAL -->
 <div id="modal-overlay">
   <div id="modal">
+    <button id="modal-close" onclick="closeModal()" title="Close">&#x2715;</button>
     <h3 id="modal-title">Place Marker</h3>
     <input type="hidden" id="modal-id">
     <input type="hidden" id="modal-x">
@@ -188,12 +235,20 @@
       <textarea id="m-desc" placeholder="Optional description&#x2026;"></textarea>
     </div>
     <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
-      <button class="btn-hide" id="btn-hide-marker" style="display:none" onclick="hideCurrentMarker()">Hide</button>
+      <button class="btn-hide" id="btn-hide-marker" style="display:none" onclick="hideCurrentMarker()">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+          <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+          <path d="M1 1l22 22"/>
+        </svg>
+        Hide
+        <span class="tooltip">Mark as hidden — restorable from the Hidden Markers panel</span>
+      </button>
       <button class="btn-primary" onclick="saveMarker()">Save</button>
     </div>
   </div>
 </div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -216,52 +271,58 @@ const CATEGORIES = [
 ];
 const CAT_MAP = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
 
-// MAP
+// GRID
+const GRID_COLS = 11, GRID_ROWS = 11;
+const GRID_LETTERS = 'ABCDEFGHIJK';
+let gridLayer = null;
+
+// MAP SETUP — disable built-in zoom control; we use footer buttons
 const bounds = [[0,0],[MAP_H,MAP_W]];
-const map = L.map('map', { crs: L.CRS.Simple, minZoom: -3, maxZoom: 5, zoomControl: false, attributionControl: false });
-L.control.zoom({ position: 'bottomright' }).addTo(map);
+const map = L.map('map', {
+  crs: L.CRS.Simple, minZoom: -3, maxZoom: 5,
+  zoomControl: false, attributionControl: false
+});
 L.imageOverlay(MAP_IMG, bounds).addTo(map);
 map.fitBounds(bounds, { padding: [20,20] });
+
+// COORDS + GRID REF
 function getGridRef(lng, lat) {
   const col = Math.min(GRID_COLS-1, Math.max(0, Math.floor(lng / (MAP_W / GRID_COLS))));
-  const row = Math.min(GRID_ROWS, Math.max(1, Math.floor((MAP_H - lat) / (MAP_H / GRID_ROWS)) + 1));
+  const row = Math.min(GRID_ROWS,   Math.max(1, Math.floor((MAP_H - lat) / (MAP_H / GRID_ROWS)) + 1));
   return GRID_LETTERS[col] + row;
 }
-
 map.on('mousemove', e => {
   const x = Math.round(e.latlng.lng), y = Math.round(e.latlng.lat);
-  const ref = getGridRef(e.latlng.lng, e.latlng.lat);
-  document.getElementById('coords-display').textContent = ref + '  •  x: ' + x + '  y: ' + y;
+  document.getElementById('coords-display').textContent =
+    getGridRef(e.latlng.lng, e.latlng.lat) + '  •  x: ' + x + '  y: ' + y;
 });
 
 // STATE
-let mode = 'view', markers = {}, activeCats = new Set(CATEGORIES.map(c=>c.id)), editingId = null;
+let markers = {}, activeCats = new Set(CATEGORIES.map(c=>c.id)), editingId = null;
 
+// SYNC STATUS
 function syncStatus(msg, cls) {
   const el = document.getElementById('sync-bar');
-  el.textContent = msg; el.className = cls||'busy';
+  el.textContent = msg; el.className = cls || 'busy';
 }
 
-// LOAD
+// LOAD MARKERS
 async function loadMarkers() {
   syncStatus('Loading…','busy');
   const { data, error } = await sb.from('markers').select('*').eq('hidden', false);
-  if (error) { syncStatus('Load error','err'); console.error(error); return; }
+  if (error) { syncStatus('Load error','err'); return; }
   clearMapMarkers();
-  data.forEach(d => addMarkerToMap(d));
+  (data||[]).forEach(d => addMarkerToMap(d));
   updateCatCounts(); updateVisibility();
   syncStatus('Live','ok');
 }
-
-// REALTIME — auto-refresh when another user makes changes
-sb.channel('markers').on('postgres_changes', { event: '*', schema: 'public', table: 'markers' }, () => loadMarkers()).subscribe();
 
 function clearMapMarkers() {
   Object.values(markers).forEach(e => map.removeLayer(e.leafletMarker));
   markers = {};
 }
 
-// MARKER RENDERING
+// MARKER ICON
 function makeIcon(name, color) {
   const s = 22;
   return L.divIcon({
@@ -276,27 +337,27 @@ function addMarkerToMap(d) {
   const lm = L.marker([d.y, d.x], { icon: makeIcon(d.name, catDef.color) }).addTo(map);
   lm.bindPopup(buildPopup(d.id, d, catDef), { maxWidth: 300 });
   lm.on('popupopen', () => {
-    document.querySelector('.popup-btn[data-id="'+d.id+'"][data-action="edit"]').onclick = () => { lm.closePopup(); openEditModal(d.id); };
-    document.querySelector('.popup-btn[data-id="'+d.id+'"][data-action="hide"]').onclick = () => { lm.closePopup(); hideMarkerById(d.id); };
+    const eb = document.querySelector('.popup-btn[data-id="'+d.id+'"][data-action="edit"]');
+    if (eb) eb.onclick = () => { lm.closePopup(); openEditModal(d.id); };
     loadNotes(d.id);
   });
   markers[d.id] = { data: d, leafletMarker: lm };
 }
 
+// POPUP — no Hide button here; Hide is only in the edit modal
 function buildPopup(id, d, catDef) {
   return '<div class="popup-name">'+(d.name||'(Unnamed)')+'</div>'
     +'<div class="popup-cat">'+(catDef?catDef.label:d.cat)+'</div>'
-    +(d.descr?'<div class="popup-desc">'+d.descr+'</div>':'')
+    +(d.descr?'<div class="popup-desc">'+escHtml(d.descr)+'</div>':'')
     +'<div class="popup-notes-section">'
     +'<div class="popup-notes-title">Notes</div>'
     +'<div class="popup-note-list" id="nl-'+id+'"><div class="popup-note-empty">Loading…</div></div>'
-    +'<input class="popup-note-input" id="na-'+id+'" placeholder="Your name (optional)" value="'+getSavedAuthor()+'">'
+    +'<input class="popup-note-input" id="na-'+id+'" placeholder="Your name (optional)" value="'+escHtml(getSavedAuthor())+'">'
     +'<textarea class="popup-note-input" id="nt-'+id+'" placeholder="Add a note…"></textarea>'
     +'<button class="popup-note-btn" onclick="submitNote(\''+id+'\')">Post Note</button>'
     +'</div>'
     +'<div class="popup-actions">'
-    +'<button class="popup-btn" data-id="'+id+'" data-action="edit">Edit</button>'
-    +'<button class="popup-btn hide-btn" data-id="'+id+'" data-action="hide">Hide</button>'
+    +'<button class="popup-btn" data-id="'+id+'" data-action="edit">Edit Marker</button>'
     +'</div>';
 }
 
@@ -307,19 +368,19 @@ async function loadNotes(markerId) {
   const list = document.getElementById('nl-'+markerId);
   if (!list) return;
   const { data, error } = await sb.from('notes').select('*').eq('marker_id', markerId).order('ts', { ascending: true });
-  if (!list) return; // popup may have closed
+  const list2 = document.getElementById('nl-'+markerId);
+  if (!list2) return;
   if (error || !data || data.length === 0) {
-    list.innerHTML = '<div class="popup-note-empty">'+(error ? 'Error loading notes' : 'No notes yet')+'</div>';
+    list2.innerHTML = '<div class="popup-note-empty">'+(error ? 'Error loading notes' : 'No notes yet — be the first!')+'</div>';
     return;
   }
-  list.innerHTML = data.map(n => {
-    const ago = timeAgo(n.ts);
-    return '<div class="popup-note-item">'
-      +'<div class="popup-note-meta"><span class="popup-note-author">'+(n.author||'Anonymous')+'</span><span class="popup-note-time">'+ago+'</span></div>'
-      +'<div class="popup-note-text">'+escHtml(n.content)+'</div>'
-      +'</div>';
-  }).join('');
-  list.scrollTop = list.scrollHeight;
+  list2.innerHTML = data.map(n =>
+    '<div class="popup-note-item">'
+    +'<div class="popup-note-meta"><span class="popup-note-author">'+escHtml(n.author||'Anonymous')+'</span><span class="popup-note-time">'+timeAgo(n.ts)+'</span></div>'
+    +'<div class="popup-note-text">'+escHtml(n.content)+'</div>'
+    +'</div>'
+  ).join('');
+  list2.scrollTop = list2.scrollHeight;
 }
 
 async function submitNote(markerId) {
@@ -330,7 +391,10 @@ async function submitNote(markerId) {
   if (!content) { textEl.focus(); return; }
   const author = authorEl.value.trim() || 'Anonymous';
   localStorage.setItem('sardisans_author', authorEl.value.trim());
-  const note = { id: 'n_'+Date.now()+'_'+Math.random().toString(36).slice(2), marker_id: markerId, content, author, ts: Date.now() };
+  const note = {
+    id: 'n_'+Date.now()+'_'+Math.random().toString(36).slice(2),
+    marker_id: markerId, content, author, ts: Date.now()
+  };
   textEl.value = '';
   const { error } = await sb.from('notes').insert(note);
   if (!error) loadNotes(markerId);
@@ -338,15 +402,15 @@ async function submitNote(markerId) {
 window.submitNote = submitNote;
 
 function timeAgo(ts) {
-  const diff = Math.floor((Date.now() - ts) / 1000);
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return Math.floor(diff/60)+'m ago';
-  if (diff < 86400) return Math.floor(diff/3600)+'h ago';
-  return Math.floor(diff/86400)+'d ago';
+  const d = Math.floor((Date.now()-ts)/1000);
+  if (d < 60) return 'just now';
+  if (d < 3600) return Math.floor(d/60)+'m ago';
+  if (d < 86400) return Math.floor(d/3600)+'h ago';
+  return Math.floor(d/86400)+'d ago';
 }
-
 function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // RIGHT-CLICK TO ADD
@@ -354,10 +418,13 @@ map.on('contextmenu', e => {
   openAddModal({ x: Math.round(e.latlng.lng), y: Math.round(e.latlng.lat) });
 });
 document.addEventListener('keydown', e => { if (e.key==='Escape') closeModal(); });
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target===document.getElementById('modal-overlay')) closeModal();
+});
 
-// CATEGORY COLOR
+// CATEGORY COLOR PREVIEW
 function onCatChange() {
-  const def = CAT_MAP[document.getElementById('m-cat').value]||CAT_MAP['Other'];
+  const def = CAT_MAP[document.getElementById('m-cat').value] || CAT_MAP['Other'];
   document.getElementById('cat-color-dot').style.background = def.color;
   document.getElementById('cat-color-label').textContent = def.label;
 }
@@ -367,7 +434,6 @@ window.onCatChange = onCatChange;
 function openAddModal(coords) {
   editingId = null;
   document.getElementById('modal-title').textContent = 'Place Marker';
-  document.getElementById('modal-id').value = '';
   document.getElementById('modal-x').value = coords.x;
   document.getElementById('modal-y').value = coords.y;
   document.getElementById('m-name').value = '';
@@ -384,7 +450,6 @@ function openEditModal(id) {
   const d = entry.data;
   editingId = id;
   document.getElementById('modal-title').textContent = 'Edit Marker';
-  document.getElementById('modal-id').value = id;
   document.getElementById('modal-x').value = d.x;
   document.getElementById('modal-y').value = d.y;
   document.getElementById('m-name').value = d.name;
@@ -393,62 +458,59 @@ function openEditModal(id) {
   document.getElementById('btn-hide-marker').style.display = '';
   onCatChange();
   document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('m-name').focus(), 50);
 }
 
-function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); editingId = null; }
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  editingId = null;
+}
 window.closeModal = closeModal;
 
+// SAVE MARKER (optimistic update; exclude id from update payload to avoid duplicate key)
 async function saveMarker() {
   const name = document.getElementById('m-name').value.trim();
   if (!name) { document.getElementById('m-name').focus(); return; }
   const row = {
-    id:    editingId || ('m_' + Date.now() + '_' + Math.random().toString(36).slice(2)),
+    id:    editingId || ('m_'+Date.now()+'_'+Math.random().toString(36).slice(2)),
     name,
     cat:   document.getElementById('m-cat').value,
     descr: document.getElementById('m-desc').value.trim(),
     x:     parseInt(document.getElementById('modal-x').value),
     y:     parseInt(document.getElementById('modal-y').value),
-    hidden: false,
-    ts:    Date.now()
+    hidden: false, ts: Date.now()
   };
-
-  // Optimistic update — show on map immediately
+  // Optimistic
   if (markers[row.id]) { map.removeLayer(markers[row.id].leafletMarker); delete markers[row.id]; }
   addMarkerToMap(row);
   updateCatCounts(); updateVisibility();
   closeModal();
-
-  // Persist to Supabase in background
+  // Persist
   syncStatus('Saving…','busy');
-  const { id: _id, ...updatePayload } = row;
+  const { id: _id, ...payload } = row;
   const { error } = editingId
-    ? await sb.from('markers').update(updatePayload).eq('id', row.id)
+    ? await sb.from('markers').update(payload).eq('id', row.id)
     : await sb.from('markers').insert(row);
-
   if (error) {
-    // Roll back optimistic update
     if (markers[row.id]) { map.removeLayer(markers[row.id].leafletMarker); delete markers[row.id]; }
     updateCatCounts();
     syncStatus('Save failed','err'); flash('Error: '+error.message);
-  } else {
-    syncStatus('Live','ok'); flash('Marker saved');
-  }
+  } else { syncStatus('Live','ok'); flash('Marker saved'); }
 }
 window.saveMarker = saveMarker;
 
+// HIDE MARKER
 async function hideCurrentMarker() { if (editingId) { await hideMarkerById(editingId); closeModal(); } }
 window.hideCurrentMarker = hideCurrentMarker;
 
 async function hideMarkerById(id) {
   syncStatus('Saving…','busy');
   const { error } = await sb.from('markers').update({ hidden: true }).eq('id', id);
-  if (error) { syncStatus('Error','err'); flash('Error: '+error.message); }
-  else {
-    if (markers[id]) { map.removeLayer(markers[id].leafletMarker); delete markers[id]; }
-    updateCatCounts(); updateVisibility();
-    syncStatus('Live','ok'); flash('Marker hidden');
-    if (hiddenOpen) loadHiddenMarkers();
-  }
+  if (error) { syncStatus('Error','err'); flash('Error: '+error.message); return; }
+  if (markers[id]) { map.removeLayer(markers[id].leafletMarker); delete markers[id]; }
+  updateCatCounts(); updateVisibility();
+  syncStatus('Live','ok'); flash('Marker hidden');
+  if (hiddenOpen) loadHiddenMarkers();
 }
 
 // FILTER / SEARCH
@@ -484,59 +546,8 @@ function buildFilters() {
   });
 }
 
-// GRID
-const GRID_COLS = 11, GRID_ROWS = 11;
-const GRID_LETTERS = 'ABCDEFGHIJK';
-let gridLayer = null;
-
-function buildGrid() {
-  gridLayer = L.layerGroup();
-  const cw = MAP_W / GRID_COLS;
-  const ch = MAP_H / GRID_ROWS;
-  const lineOpts = { color: 'rgba(210,185,120,0.35)', weight: 1, interactive: false };
-
-  // Vertical lines
-  for (let i = 0; i <= GRID_COLS; i++) {
-    L.polyline([[0, i*cw], [MAP_H, i*cw]], lineOpts).addTo(gridLayer);
-  }
-  // Horizontal lines
-  for (let i = 0; i <= GRID_ROWS; i++) {
-    const lat = MAP_H - i * ch;
-    L.polyline([[lat, 0], [lat, MAP_W]], lineOpts).addTo(gridLayer);
-  }
-
-  // Column labels (A–K) near top
-  for (let i = 0; i < GRID_COLS; i++) {
-    const lng = i * cw + cw / 2;
-    const lat = MAP_H - ch * 0.18;
-    L.marker([lat, lng], {
-      icon: L.divIcon({ className: 'grid-label', html: GRID_LETTERS[i], iconSize: [18, 14], iconAnchor: [9, 7] }),
-      interactive: false, keyboard: false
-    }).addTo(gridLayer);
-  }
-
-  // Row labels (1–11) near left
-  for (let i = 0; i < GRID_ROWS; i++) {
-    const lat = MAP_H - (i * ch + ch / 2);
-    const lng = cw * 0.18;
-    L.marker([lat, lng], {
-      icon: L.divIcon({ className: 'grid-label', html: String(i + 1), iconSize: [16, 14], iconAnchor: [8, 7] }),
-      interactive: false, keyboard: false
-    }).addTo(gridLayer);
-  }
-
-  gridLayer.addTo(map);
-}
-
-function toggleGrid(on) {
-  if (on) { if (gridLayer) gridLayer.addTo(map); }
-  else { if (gridLayer) gridLayer.remove(); }
-}
-window.toggleGrid = toggleGrid;
-
 // HIDDEN MARKERS PANEL
 let hiddenOpen = false;
-
 function toggleHidden() {
   hiddenOpen = !hiddenOpen;
   document.getElementById('hidden-toggle').classList.toggle('open', hiddenOpen);
@@ -548,35 +559,32 @@ window.toggleHidden = toggleHidden;
 async function loadHiddenMarkers() {
   const list = document.getElementById('hidden-list');
   const empty = document.getElementById('hidden-empty');
-  // Clear previous rows (keep the empty notice)
   Array.from(list.querySelectorAll('.hidden-item')).forEach(el => el.remove());
-
   const { data, error } = await sb.from('markers').select('*').eq('hidden', true).order('ts', { ascending: false });
   if (error || !data) return;
-
-  const countEl = document.getElementById('hidden-count');
-  countEl.textContent = data.length ? '('+data.length+')' : '';
+  document.getElementById('hidden-count').textContent = data.length ? '('+data.length+')' : '';
   empty.style.display = data.length ? 'none' : 'block';
-
   data.forEach(d => {
     const catDef = CAT_MAP[d.cat] || CAT_MAP['Other'];
-    const item = document.createElement('div'); item.className = 'hidden-item';
-    const dot  = document.createElement('div'); dot.className = 'hidden-item-dot'; dot.style.background = catDef.color;
-    const name = document.createElement('span'); name.className = 'hidden-item-name'; name.textContent = d.name || '(Unnamed)'; name.title = d.name || '';
-    const btns = document.createElement('div'); btns.className = 'hidden-item-btns';
+    const item = document.createElement('div'); item.className='hidden-item';
+    const dot  = document.createElement('div'); dot.className='hidden-item-dot'; dot.style.background=catDef.color;
+    const name = document.createElement('span'); name.className='hidden-item-name'; name.textContent=d.name||'(Unnamed)'; name.title=d.name||'';
+    const btns = document.createElement('div'); btns.className='hidden-item-btns';
 
-    const restoreBtn = document.createElement('button'); restoreBtn.className = 'hi-btn restore'; restoreBtn.textContent = 'Restore';
+    const restoreBtn = document.createElement('button'); restoreBtn.className='hi-btn restore'; restoreBtn.textContent='Restore';
     restoreBtn.onclick = async () => {
       await sb.from('markers').update({ hidden: false }).eq('id', d.id);
       addMarkerToMap(d); updateCatCounts(); updateVisibility();
       loadHiddenMarkers();
     };
 
-    const delBtn = document.createElement('button'); delBtn.className = 'hi-btn del'; delBtn.textContent = 'Delete';
+    const delBtn = document.createElement('button'); delBtn.className='hi-btn del'; delBtn.textContent='Delete';
     delBtn.onclick = async () => {
-      if (!confirm('Permanently delete "' + (d.name||'this marker') + '"?')) return;
-      await sb.from('markers').delete().eq('id', d.id);
+      if (!confirm('Permanently delete "' + (d.name||'this marker') + '"? This cannot be undone.')) return;
+      const { error } = await sb.from('markers').delete().eq('id', d.id);
+      if (error) { flash('Delete failed: '+error.message); return; }
       loadHiddenMarkers();
+      flash('Marker permanently deleted');
     };
 
     btns.append(restoreBtn, delBtn);
@@ -585,16 +593,27 @@ async function loadHiddenMarkers() {
   });
 }
 
+// GRID
+function buildGrid() {
+  gridLayer = L.layerGroup();
+  const cw = MAP_W / GRID_COLS, ch = MAP_H / GRID_ROWS;
+  const lineOpts = { color: 'rgba(210,185,120,0.35)', weight: 1, interactive: false };
+  for (let i=0; i<=GRID_COLS; i++) L.polyline([[0,i*cw],[MAP_H,i*cw]], lineOpts).addTo(gridLayer);
+  for (let i=0; i<=GRID_ROWS; i++) L.polyline([[MAP_H-i*ch,0],[MAP_H-i*ch,MAP_W]], lineOpts).addTo(gridLayer);
+  for (let i=0; i<GRID_COLS; i++) L.marker([MAP_H-ch*0.18, i*cw+cw/2], { icon: L.divIcon({ className:'grid-label', html:GRID_LETTERS[i], iconSize:[18,14], iconAnchor:[9,7] }), interactive:false, keyboard:false }).addTo(gridLayer);
+  for (let i=0; i<GRID_ROWS; i++) L.marker([MAP_H-(i*ch+ch/2), cw*0.18], { icon: L.divIcon({ className:'grid-label', html:String(i+1), iconSize:[16,14], iconAnchor:[8,7] }), interactive:false, keyboard:false }).addTo(gridLayer);
+  gridLayer.addTo(map);
+}
+function toggleGrid(on) { if(on){if(gridLayer)gridLayer.addTo(map);}else{if(gridLayer)gridLayer.remove();} }
+window.toggleGrid = toggleGrid;
+
+// FLASH TOAST
 let flashTimer;
 function flash(msg) {
   const el = document.getElementById('status');
   el.textContent=msg; el.classList.add('show');
   clearTimeout(flashTimer); flashTimer=setTimeout(()=>el.classList.remove('show'),2500);
 }
-
-document.getElementById('modal-overlay').addEventListener('click', e => {
-  if (e.target===document.getElementById('modal-overlay')) closeModal();
-});
 
 buildFilters();
 buildGrid();
