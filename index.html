@@ -137,7 +137,7 @@
 </div>
 <div id="footer">
   <div id="coords-display">x: 0&nbsp;&nbsp;y: 0</div>
-  <div id="version-display">v1.2.0</div>
+  <div id="version-display">v1.3.0</div>
   <div id="zoom-controls">
     <button class="zoom-btn" onclick="map.zoomIn()" title="Zoom in">+</button>
     <button class="zoom-btn" onclick="map.zoomOut()" title="Zoom out">&minus;</button>
@@ -271,7 +271,7 @@ function buildPopup(id,d,catDef){
     +'<div class="popup-note-list" id="nl-'+id+'"><div class="popup-note-empty">Loading...</div></div>'
     +'<input class="popup-note-input" id="na-'+id+'" placeholder="Your name (optional)" value="'+esc(getSavedAuthor())+'">'
     +'<textarea class="popup-note-input" id="nt-'+id+'" placeholder="Add a note..."></textarea>'
-    +'<button class="popup-note-btn" onclick="submitNote(\'+safeId+'\')">Post Note</button>'
+    +'<button class="popup-note-btn" onclick="submitNote(\''+safeId+'\')">Post Note</button>'
     +'</div>'
     +'<div class="popup-actions">'
     +'<button class="popup-btn" data-id="'+id+'" data-action="edit">Edit Marker</button>'
