@@ -475,4 +475,11 @@ function toggleGrid(on){if(on){if(gridLayer)gridLayer.addTo(map);}else{if(gridLa
 window.toggleGrid=toggleGrid;
 
 var flashTimer;
-function flash(msg){var el=document.getElementById('st
+function flash(msg){var el=document.getElementById('status');el.textContent=msg;el.classList.add('show');clearTimeout(flashTimer);flashTimer=setTimeout(function(){el.classList.remove('show');},2500);}
+
+buildFilters();
+buildGrid();
+loadMarkers();
+</script>
+</body>
+</html>
