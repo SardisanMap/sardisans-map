@@ -137,7 +137,7 @@
   #move-banner{display:none;position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:1002;background:rgba(201,168,76,.92);color:#0a0b0e;font-family:'Cinzel',serif;font-size:13px;letter-spacing:1px;padding:8px 20px;border-radius:4px;pointer-events:none;white-space:nowrap;box-shadow:0 2px 12px rgba(0,0,0,.5);}
   #move-banner.show{display:block;}
   /* Auth overlay */
-  #auth-overlay{position:fixed;inset:0;z-index:9999;background:rgba(10,11,14,.97);display:flex;align-items:center;justify-content:center;}
+  #auth-overlay{position:fixed;inset:0;z-index:9999;background:#0a0b0e;display:flex;align-items:center;justify-content:center;}
   #auth-box{background:#131518;border:1px solid var(--border);border-radius:8px;padding:48px 52px;width:400px;max-width:92vw;box-shadow:0 16px 48px rgba(0,0,0,.8);text-align:center;}
   #auth-box h2{font-family:'Cinzel',serif;color:var(--gold);font-size:22px;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;}
   #auth-box p{font-size:15px;color:var(--text-dim);margin-bottom:28px;}
@@ -314,6 +314,7 @@ function applyRole(){
   document.getElementById('role-display').textContent=label;
   document.getElementById('hidden-section').style.display=isAdmin()?'':'none';
   document.getElementById('admin-divider').style.display=isAdmin()?'':'none';
+  loadMarkers();
 }
 
 // ── Map init ──────────────────────────────────────────────────────────────
@@ -355,19 +356,27 @@ function buildGrid(){
   if(gridLayer)map.removeLayer(gridLayer);
   gridLayer=L.layerGroup();
   var cw=MAP_W/GRID_COLS,ch=MAP_H/GRID_ROWS;
+  // Cell outlines
   for(var c=0;c<GRID_COLS;c++){
     for(var r=0;r<GRID_ROWS;r++){
-      var label=GRID_LETTERS[c]+(r+1);
-      var cx=c*cw+cw/2,cy=MAP_H-(r*ch+ch/2);
-      L.marker([cy,cx],{
-        icon:L.divIcon({className:'grid-label',html:label,iconSize:[40,20],iconAnchor:[20,10]}),
-        interactive:false
-      }).addTo(gridLayer);
-      // Cell outline
       L.rectangle([[MAP_H-(r+1)*ch,c*cw],[MAP_H-r*ch,(c+1)*cw]],{
         color:'rgba(180,140,60,.18)',weight:1,fill:false,interactive:false
       }).addTo(gridLayer);
     }
+  }
+  // Column letters (A–K) along top edge
+  for(var c=0;c<GRID_COLS;c++){
+    L.marker([MAP_H, c*cw+cw/2],{
+      icon:L.divIcon({className:'grid-label',html:GRID_LETTERS[c],iconSize:[30,16],iconAnchor:[15,16]}),
+      interactive:false
+    }).addTo(gridLayer);
+  }
+  // Row numbers (1–11) along left edge
+  for(var r=0;r<GRID_ROWS;r++){
+    L.marker([MAP_H-(r*ch+ch/2), 0],{
+      icon:L.divIcon({className:'grid-label',html:(r+1),iconSize:[22,16],iconAnchor:[22,8]}),
+      interactive:false
+    }).addTo(gridLayer);
   }
   gridLayer.addTo(map);
 }
@@ -420,9 +429,7 @@ function buildPopup(id,d,catDef){
     html+='<div class="popup-actions">'
       +'<button class="popup-btn" data-id="'+id+'" data-action="move">Move</button>'
       +'<button class="popup-btn" data-id="'+id+'" data-action="edit">Edit</button>'
-      +(isAdmin()
-        ? ''
-        : '<button class="popup-btn danger" data-id="'+id+'" data-action="delete">Delete</button>')
+      +'<button class="popup-btn danger" data-id="'+id+'" data-action="delete">Delete</button>'
       +'</div>';
   }
   return html;
@@ -751,7 +758,7 @@ async function loadMarkers(){
 initAuth();
 buildFilters();
 buildGrid();
-loadMarkers();
+// loadMarkers() is called inside applyRole() after successful auth
 </script>
 </body>
 </html>
