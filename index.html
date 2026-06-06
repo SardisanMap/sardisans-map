@@ -104,6 +104,9 @@
   .popup-btn{flex:1;padding:7px 10px;font-family:'Cinzel',serif;font-size:12px;letter-spacing:1px;text-transform:uppercase;border-radius:3px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text-dim);transition:all .2s;}
   .popup-btn:hover{color:var(--gold);border-color:var(--gold);}
   .map-marker{display:flex;flex-direction:column;align-items:center;pointer-events:none;}
+  .move-mode #map{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M14 2C10.13 2 7 5.13 7 9c0 6.25 7 17 7 17s7-10.75 7-17c0-3.87-3.13-7-7-7z' fill='white' stroke='%23333' stroke-width='1.5'/%3E%3Ccircle cx='14' cy='9' r='3' fill='%23333'/%3E%3C/svg%3E") 14 26, crosshair;}
+  #move-banner{display:none;position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:1002;background:rgba(201,168,76,.92);color:#0a0b0e;font-family:'Cinzel',serif;font-size:13px;letter-spacing:1px;padding:8px 20px;border-radius:4px;pointer-events:none;white-space:nowrap;box-shadow:0 2px 12px rgba(0,0,0,.5);}
+  #move-banner.show{display:block;}
   .marker-pin{border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid rgba(0,0,0,.4);box-shadow:0 2px 6px rgba(0,0,0,.5);}
   .marker-label{font-family:'Crimson Text',serif;font-size:13px;font-weight:600;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.9);white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;margin-top:2px;pointer-events:none;}
 </style>
@@ -134,10 +137,11 @@
     <div id="sync-bar" class="busy">Connecting...</div>
   </div>
   <div id="status"></div>
+  <div id="move-banner">&#x1F4CC; Click map to place marker &mdash; Esc to cancel</div>
 </div>
 <div id="footer">
   <div id="coords-display">x: 0&nbsp;&nbsp;y: 0</div>
-  <div id="version-display">v1.3.0</div>
+  <div id="version-display">v1.4.0</div>
   <div id="zoom-controls">
     <button class="zoom-btn" onclick="map.zoomIn()" title="Zoom in">+</button>
     <button class="zoom-btn" onclick="map.zoomOut()" title="Zoom out">&minus;</button>
@@ -223,7 +227,7 @@ map.on('mousemove',function(e){
   document.getElementById('coords-display').textContent=getGridRef(e.latlng.lng,e.latlng.lat)+'  x: '+x+'  y: '+y;
 });
 
-var markers={}, activeCats=new Set(CATEGORIES.map(function(c){return c.id;})), editingId=null, hiddenOpen=false, gridLayer=null;
+var markers={}, activeCats=new Set(CATEGORIES.map(function(c){return c.id;})), editingId=null, movingId=null, hiddenOpen=false, gridLayer=null;
 
 function syncStatus(msg,cls){var el=document.getElementById('sync-bar');el.textContent=msg;el.className=cls||'busy';}
 
@@ -256,6 +260,8 @@ function addMarkerToMap(d){
   lm.on('popupopen',function(){
     var eb=document.querySelector('.popup-btn[data-id="'+d.id+'"][data-action="edit"]');
     if(eb) eb.onclick=function(){lm.closePopup();openEditModal(d.id);};
+    var mb=document.querySelector('.popup-btn[data-id="'+d.id+'"][data-action="move"]');
+    if(mb) mb.onclick=function(){lm.closePopup();startMoveMode(d.id);};
     loadNotes(d.id);
   });
   markers[d.id]={data:d,leafletMarker:lm};
@@ -274,6 +280,7 @@ function buildPopup(id,d,catDef){
     +'<button class="popup-note-btn" onclick="submitNote(\''+safeId+'\')">Post Note</button>'
     +'</div>'
     +'<div class="popup-actions">'
+    +'<button class="popup-btn" data-id="'+id+'" data-action="move">Move</button>'
     +'<button class="popup-btn" data-id="'+id+'" data-action="edit">Edit Marker</button>'
     +'</div>';
 }
@@ -312,8 +319,36 @@ window.submitNote=submitNote;
 function timeAgo(ts){var d=Math.floor((Date.now()-ts)/1000);if(d<60)return'just now';if(d<3600)return Math.floor(d/60)+'m ago';if(d<86400)return Math.floor(d/3600)+'h ago';return Math.floor(d/86400)+'d ago';}
 function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
-map.on('contextmenu',function(e){openAddModal({x:Math.round(e.latlng.lng),y:Math.round(e.latlng.lat)});});
-document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal();});
+map.on('contextmenu',function(e){if(movingId)return;openAddModal({x:Math.round(e.latlng.lng),y:Math.round(e.latlng.lat)});});
+map.on('click',function(e){
+  if(!movingId)return;
+  var id=movingId;
+  cancelMoveMode();
+  var entry=markers[id];if(!entry)return;
+  var newX=Math.round(e.latlng.lng),newY=Math.round(e.latlng.lat);
+  var d=Object.assign({},entry.data,{x:newX,y:newY});
+  map.removeLayer(entry.leafletMarker);delete markers[id];
+  addMarkerToMap(d);updateVisibility();
+  syncStatus('Saving...','busy');
+  sb.from('markers').update({x:newX,y:newY}).eq('id',id).then(function(res){
+    if(res.error){syncStatus('Error','err');flash('Move failed: '+res.error.message);}
+    else{syncStatus('Live','ok');flash('Marker moved');}
+  });
+});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeModal();cancelMoveMode();}});
+
+function startMoveMode(id){
+  movingId=id;
+  document.getElementById('map-wrap').classList.add('move-mode');
+  document.getElementById('move-banner').classList.add('show');
+}
+function cancelMoveMode(){
+  movingId=null;
+  document.getElementById('map-wrap').classList.remove('move-mode');
+  document.getElementById('move-banner').classList.remove('show');
+}
+window.startMoveMode=startMoveMode;
+window.cancelMoveMode=cancelMoveMode;
 document.getElementById('modal-overlay').addEventListener('click',function(e){if(e.target===document.getElementById('modal-overlay'))closeModal();});
 
 function onCatChange(){var def=CAT_MAP[document.getElementById('m-cat').value]||CAT_MAP['Other'];document.getElementById('cat-color-dot').style.background=def.color;document.getElementById('cat-color-label').textContent=def.label;}
