@@ -266,7 +266,7 @@ textarea.popup-note-input{resize:none;height:58px;}
   </div>
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 (function(){
 'use strict';
@@ -290,7 +290,9 @@ var CATEGORIES=[
 var CAT_MAP={};
 CATEGORIES.forEach(function(c){CAT_MAP[c.id]=c;});
 
-var sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+var sb;
+try{sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);}
+catch(e){console.error('Supabase load error:',e);}
 var currentRole=null;
 var markers={};
 var activeCats=new Set(CATEGORIES.map(function(c){return c.id;}));
