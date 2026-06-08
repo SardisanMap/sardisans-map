@@ -39,11 +39,18 @@
   .divider{border:none;border-top:1px solid var(--border);margin:12px 0;}
   #sync-bar{font-size:13px;text-align:center;padding:4px 0;}
   #sync-bar.ok{color:#27ae60;} #sync-bar.busy{color:var(--gold);} #sync-bar.err{color:#e74c3c;}
-  /* Role bar */
-  #role-bar{display:flex;align-items:center;justify-content:space-between;padding:4px 0;}
-  #role-display{font-family:'Cinzel',serif;letter-spacing:1px;font-size:11px;text-transform:uppercase;color:var(--text-dim);}
-  #logout-btn{background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:'Cinzel',serif;font-size:11px;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;border-radius:3px;cursor:pointer;transition:all .2s;}
+  /* Status bar (top of panel) */
+  #status-bar{display:flex;align-items:center;gap:6px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border);}
+  #player-name{flex:1;padding:5px 8px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:'Crimson Text',serif;font-size:14px;outline:none;min-width:0;transition:border-color .2s;}
+  #player-name::placeholder{color:var(--text-dim);}
+  #player-name:focus{border-color:var(--gold);}
+  #role-pill{font-family:'Cinzel',serif;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--gold);background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.3);border-radius:3px;padding:3px 8px;white-space:nowrap;flex-shrink:0;}
+  #logout-btn{background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:'Cinzel',serif;font-size:10px;letter-spacing:1px;text-transform:uppercase;padding:4px 8px;border-radius:3px;cursor:pointer;transition:all .2s;flex-shrink:0;}
   #logout-btn:hover{color:var(--gold);border-color:var(--gold);}
+  /* All-toggle row */
+  #all-toggle-row{border-bottom:1px solid var(--border);margin-bottom:4px;padding-bottom:6px;}
+  #all-toggle-row span{font-weight:600;}
+  .cat-toggle:indeterminate{background:rgba(201,168,76,.35);border-color:var(--gold);}
   /* Hidden panel */
   #hidden-toggle{width:100%;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:'Cinzel',serif;font-size:12px;letter-spacing:1px;text-transform:uppercase;padding:8px 10px;border-radius:4px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:all .2s;}
   #hidden-toggle:hover{color:var(--gold);border-color:var(--gold);}
@@ -163,6 +170,11 @@
 <div id="map-wrap">
   <div id="map"></div>
   <div id="panel">
+    <div id="status-bar">
+      <input type="text" id="player-name" placeholder="Your name..." autocomplete="off">
+      <span id="role-pill"></span>
+      <button id="logout-btn" onclick="logout()">Sign Out</button>
+    </div>
     <h2>Sardisans Map</h2>
     <div id="right-click-hint">Right-click map to add a marker</div>
     <label class="grid-toggle-row">
@@ -171,11 +183,6 @@
     </label>
     <input type="text" id="search" placeholder="Search markers..." oninput="updateVisibility()">
     <div id="filters"></div>
-    <hr class="divider">
-    <div id="role-bar">
-      <span id="role-display"></span>
-      <button id="logout-btn" onclick="logout()">Sign Out</button>
-    </div>
     <hr class="divider" id="admin-divider">
     <div id="hidden-section">
       <button id="hidden-toggle" onclick="toggleHidden()">
@@ -194,7 +201,7 @@
 </div>
 <div id="footer">
   <div id="coords-display">x: 0&nbsp;&nbsp;y: 0</div>
-  <div id="version-display">v1.5.0</div>
+  <div id="version-display">v1.5.1</div>
   <div id="zoom-controls">
     <button class="zoom-btn" onclick="map.zoomIn()" title="Zoom in">+</button>
     <button class="zoom-btn" onclick="map.zoomOut()" title="Zoom out">&minus;</button>
@@ -311,9 +318,14 @@ window.logout=logout;
 
 function applyRole(){
   var label=isAdmin()?'Admin':'Viewer';
-  document.getElementById('role-display').textContent=label;
+  document.getElementById('role-pill').textContent=label;
   document.getElementById('hidden-section').style.display=isAdmin()?'':'none';
   document.getElementById('admin-divider').style.display=isAdmin()?'':'none';
+  var nameEl=document.getElementById('player-name');
+  if(nameEl){
+    nameEl.value=getSavedAuthor();
+    nameEl.oninput=function(){localStorage.setItem('sardisans_author',nameEl.value.trim());};
+  }
   loadMarkers();
 }
 
@@ -674,12 +686,38 @@ function updateCatCounts(){
   });
 }
 
+function syncAllToggle(){
+  var allCb=document.getElementById('all-chk');
+  if(!allCb)return;
+  var checked=activeCats.size,total=CATEGORIES.length;
+  if(checked===total){allCb.indeterminate=false;allCb.checked=true;}
+  else if(checked===0){allCb.indeterminate=false;allCb.checked=false;}
+  else{allCb.indeterminate=true;}
+}
+
 function buildFilters(){
   var container=document.getElementById('filters');
+  // All-toggle row
+  var allRow=document.createElement('div');allRow.className='cat-row';allRow.id='all-toggle-row';
+  var allCb=document.createElement('input');allCb.type='checkbox';allCb.className='cat-toggle';allCb.id='all-chk';allCb.checked=true;
+  allCb.onchange=function(){
+    var cbs=container.querySelectorAll('.cat-toggle:not(#all-chk)');
+    cbs.forEach(function(cb){
+      if(cb.checked!==allCb.checked){cb.checked=allCb.checked;cb.dispatchEvent(new Event('change'));}
+    });
+  };
+  var allLbl=document.createElement('span');allLbl.textContent='All categories';
+  allRow.append(allCb,allLbl);
+  allRow.onclick=function(ev){if(ev.target!==allCb){allCb.checked=!allCb.checked;allCb.dispatchEvent(new Event('change'));}};
+  container.appendChild(allRow);
+  // Category rows
   CATEGORIES.forEach(function(cat){
     var row=document.createElement('div');row.className='cat-row';
     var cb=document.createElement('input');cb.type='checkbox';cb.className='cat-toggle';cb.checked=true;
-    cb.onchange=function(){if(cb.checked)activeCats.add(cat.id);else activeCats.delete(cat.id);updateVisibility();};
+    cb.onchange=function(){
+      if(cb.checked)activeCats.add(cat.id);else activeCats.delete(cat.id);
+      updateVisibility();syncAllToggle();
+    };
     var dot=document.createElement('div');dot.className='cat-dot';dot.style.background=cat.color;
     var lbl=document.createElement('span');lbl.textContent=cat.label;
     var cnt=document.createElement('span');cnt.className='cat-count';cnt.id='count-'+cat.id;cnt.textContent='0';
