@@ -142,11 +142,33 @@
   .move-mode #map{cursor:crosshair;}
   #move-banner{display:none;position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:1002;background:rgba(201,168,76,.92);color:#0a0b0e;font-family:'Cinzel',serif;font-size:13px;letter-spacing:1px;padding:8px 20px;border-radius:4px;pointer-events:none;white-space:nowrap;box-shadow:0 2px 12px rgba(0,0,0,.5);}
   #move-banner.show{display:block;}
-  #auth-overlay{display:none;}
+  /* Auth overlay */
+  #auth-overlay{display:none;position:fixed;inset:0;background:#0a0b0e;z-index:9999;align-items:center;justify-content:center;flex-direction:column;}
+  #auth-overlay.open{display:flex;}
+  #auth-box{background:#131518;border:1px solid var(--border);border-radius:8px;padding:40px 48px;width:380px;max-width:92vw;box-shadow:0 16px 48px rgba(0,0,0,.8);text-align:center;}
+  #auth-box h1{font-family:'Cinzel',serif;font-size:20px;letter-spacing:3px;color:var(--gold);text-transform:uppercase;margin-bottom:6px;}
+  #auth-version{font-family:'Cinzel',serif;font-size:11px;letter-spacing:1.5px;color:var(--text-dim);margin-bottom:4px;}
+  #auth-status-line{font-family:'Cinzel',serif;font-size:11px;letter-spacing:1px;color:var(--text-dim);margin-bottom:28px;}
+  #auth-status-text.ok{color:#27ae60;} #auth-status-text.busy{color:var(--gold);} #auth-status-text.err{color:#e74c3c;}
+  #auth-pass{width:100%;padding:11px 13px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:'Crimson Text',serif;font-size:17px;outline:none;transition:border-color .2s;text-align:center;letter-spacing:2px;margin-bottom:12px;}
+  #auth-pass:focus{border-color:var(--gold);}
+  #auth-pass::placeholder{letter-spacing:0;color:var(--text-dim);}
+  #auth-submit{width:100%;padding:12px;font-family:'Cinzel',serif;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;background:rgba(201,168,76,.2);border:1px solid var(--gold);color:var(--gold);border-radius:4px;cursor:pointer;transition:all .2s;}
+  #auth-submit:hover{background:rgba(201,168,76,.35);}
+  #auth-error{margin-top:12px;font-size:14px;color:#e74c3c;min-height:20px;}
 </style>
 </head>
 <body>
-<div id="auth-overlay"></div>
+<div id="auth-overlay" class="open">
+  <div id="auth-box">
+    <h1>Sardisans Map</h1>
+    <div id="auth-version">v1.5.3 b40177</div>
+    <div id="auth-status-line">Server: <span id="auth-status-text" class="busy">connecting...</span></div>
+    <input type="password" id="auth-pass" placeholder="Enter passphrase..." autocomplete="off">
+    <button id="auth-submit">Enter</button>
+    <div id="auth-error"></div>
+  </div>
+</div>
 <div id="map-wrap">
   <div id="map"></div>
   <div id="panel">
@@ -289,6 +311,7 @@ window.addEventListener('load',function(){
     if(typeof supabase!=='undefined'){
       sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
       dlog('Supabase client created','ok');
+      syncStatus('Ready','ok');
     } else {
       dlog('supabase global missing after load','err');
     }
@@ -317,7 +340,7 @@ window.addEventListener('load',function(){
   });
 
   // State
-  var currentRole='admin'; // BYPASSED
+  var currentRole='viewer';
   var markers={},activeCats=new Set(CATEGORIES.map(function(c){return c.id;}));
   var editingId=null,movingId=null,hiddenOpen=false,gridLayer=null,markerOpacity=1.0;
 
@@ -335,9 +358,45 @@ window.addEventListener('load',function(){
   }
   document.getElementById('logout-btn').onclick=function(){localStorage.removeItem('sardisans_role');location.reload();};
 
+  // Auth
+  function checkAuth(){
+    var saved=localStorage.getItem('sardisans_role');
+    if(saved==='admin'||saved==='viewer'){
+      currentRole=saved;
+      document.getElementById('auth-overlay').classList.remove('open');
+      return true;
+    }
+    document.getElementById('auth-overlay').classList.add('open');
+    return false;
+  }
+  function tryAuth(){
+    var pass=document.getElementById('auth-pass').value.trim();
+    var err=document.getElementById('auth-error');
+    err.textContent='';
+    if(pass===ADMIN_PASS){
+      localStorage.setItem('sardisans_role','admin');
+      currentRole='admin';
+      document.getElementById('auth-overlay').classList.remove('open');
+      applyRole();buildFilters();buildGrid();loadMarkers();
+    } else if(pass===VIEWER_PASS){
+      localStorage.setItem('sardisans_role','viewer');
+      currentRole='viewer';
+      document.getElementById('auth-overlay').classList.remove('open');
+      applyRole();buildFilters();buildGrid();loadMarkers();
+    } else {
+      err.textContent='Incorrect passphrase.';
+      document.getElementById('auth-pass').value='';
+      document.getElementById('auth-pass').focus();
+    }
+  }
+  document.getElementById('auth-submit').onclick=tryAuth;
+  document.getElementById('auth-pass').addEventListener('keydown',function(e){if(e.key==='Enter')tryAuth();});
+
   function syncStatus(msg,cls){
     var el=document.getElementById('sync-text');
     if(el){el.textContent=msg;el.className=cls||'busy';}
+    var ae=document.getElementById('auth-status-text');
+    if(ae){ae.textContent=msg;ae.className=cls||'busy';}
     dlog('Status: '+msg,'info');
   }
   var _ft=null;
@@ -645,12 +704,15 @@ window.addEventListener('load',function(){
   }
 
   // Boot
-  currentRole='admin'; // BYPASSED
-  applyRole();
-  buildFilters();
-  buildGrid();
-  loadMarkers();
-  dlog('Boot complete','ok');
+  if(checkAuth()){
+    applyRole();
+    buildFilters();
+    buildGrid();
+    loadMarkers();
+    dlog('Boot complete','ok');
+  } else {
+    dlog('Auth required — waiting for passphrase','info');
+  }
 });
 </script>
 </body>
