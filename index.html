@@ -391,6 +391,7 @@ window.addEventListener('load',function(){
       if(el)el.onclick=function(){lm.closePopup();openEditModal(d.id);};
       el=document.querySelector('.popup-btn[data-id="'+d.id+'"][data-action="delete"]');
       if(el)el.onclick=function(){lm.closePopup();confirmDeleteMarker(d.id);};
+      var nsb=document.querySelector('[data-action="note-submit"][data-mid="'+d.id+'"]');if(nsb)nsb.onclick=function(){window._sNote(d.id);};
       loadNotes(d.id);
     });
     markers[d.id]={data:d,leafletMarker:lm};
@@ -405,7 +406,7 @@ window.addEventListener('load',function(){
       +'<div class="popup-note-list" id="nl-'+id+'"><div class="popup-note-empty">Loading...</div></div>'
       +'<input class="popup-note-input" id="na-'+id+'" placeholder="Your name (optional)" value="'+esc(getSavedAuthor())+'">'
       +'<textarea class="popup-note-input" id="nt-'+id+'" placeholder="Add a note..."></textarea>'
-      +'<button class="popup-note-btn" onclick="window._sNote(''+sid+'')">Post Note</button></div>';
+      +'<button class="popup-note-btn" data-action="note-submit" data-mid="'+id+'">Post Note</button></div>';
     if(canManage(id)){
       html+='<div class="popup-actions">'
         +'<button class="popup-btn" data-id="'+id+'" data-action="move">Move</button>'
@@ -434,11 +435,11 @@ window.addEventListener('load',function(){
       l2.innerHTML='<div class="popup-note-empty">'+(res.error?'Error: '+res.error.message:'No notes yet')+'</div>';return;
     }
     l2.innerHTML=res.data.map(function(n){
-      var sn=n.id.replace(/'/g,"\'"),sm=mid.replace(/'/g,"\'");
-      var acts=isOwnedNote(n.id)?'<span class="note-acts"><button class="note-act edit" onclick="window._eNote(''+sn+'',''+sm+'')">&#9998;</button><button class="note-act del" onclick="window._dNote(''+sn+'',''+sm+'')">&#x2715;</button></span>':'';
+      var acts=isOwnedNote(n.id)?'<span class="note-acts"><button class="note-act edit" data-action="note-edit" data-nid="'+n.id+'" data-mid="'+mid+'">&#9998;</button><button class="note-act del" data-action="note-del" data-nid="'+n.id+'" data-mid="'+mid+'">&#x2715;</button></span>':'';
       return '<div class="popup-note-item" id="ni-'+n.id+'"><div class="popup-note-meta"><span class="popup-note-author">'+esc(n.author||'Anonymous')+'</span><span style="display:flex;align-items:center"><span class="popup-note-time">'+timeAgo(n.ts)+'</span>'+acts+'</span></div><div class="popup-note-text" id="nt-text-'+n.id+'">'+esc(n.content)+'</div></div>';
     }).join('');
     l2.scrollTop=l2.scrollHeight;
+    l2.onclick=function(e){var btn=e.target.closest('[data-action]');if(!btn)return;var nid=btn.dataset.nid,mid2=btn.dataset.mid;if(btn.dataset.action==='note-edit')window._eNote(nid,mid2);if(btn.dataset.action==='note-del')window._dNote(nid,mid2);};
   }
   window._sNote=async function(mid){
     if(!sb){flash('No DB');return;}
